@@ -8,6 +8,27 @@ st.set_page_config(page_title="Bayesian A/B Updating", layout="wide")
 
 
 # =====================================================
+# Defaults
+# =====================================================
+DEFAULTS = {"a0_A": 20.0, "b0_A": 20.0, "a0_B": 1.0, "b0_B": 1.0}
+
+# Initialize slider session state keys on first run
+for k, v in DEFAULTS.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+
+def reset_sliders():
+    for k, v in DEFAULTS.items():
+        st.session_state[k] = v
+    # Also wipe the arms so they reinitialize from the default priors
+    for arm in ("A", "B"):
+        if arm in st.session_state:
+            del st.session_state[arm]
+    st.session_state.pop("_last_prior", None)
+
+
+# =====================================================
 # Helpers
 # =====================================================
 def init_arm(name, a0, b0):
@@ -49,31 +70,59 @@ def posterior_mean_ci(alpha, beta_, level=0.95):
 # =====================================================
 st.sidebar.header("Priors")
 
-a0_A = st.sidebar.number_input("A prior α", value=20.0, min_value=0.1)
-b0_A = st.sidebar.number_input("A prior β", value=20.0, min_value=0.1)
+a0_A = st.sidebar.slider(
+    "A prior α", min_value=0.1, max_value=100.0, step=1.0, key="a0_A"
+)
+b0_A = st.sidebar.slider(
+    "A prior β", min_value=0.1, max_value=100.0, step=1.0, key="b0_A"
+)
+a0_B = st.sidebar.slider(
+    "B prior α", min_value=0.1, max_value=100.0, step=1.0, key="a0_B"
+)
+b0_B = st.sidebar.slider(
+    "B prior β", min_value=0.1, max_value=100.0, step=1.0, key="b0_B"
+)
 
-a0_B = st.sidebar.number_input("B prior α", value=1.0, min_value=0.1)
-b0_B = st.sidebar.number_input("B prior β", value=1.0, min_value=0.1)
+st.sidebar.button("Default priors", on_click=reset_sliders)
 
-init_arm("A", a0_A, b0_A)
-init_arm("B", a0_B, b0_B)
+# ── Detect prior changes and reset arms accordingly ──────────────────────────
+# If the user moved a slider, treat it as a prior change and restart the arm.
+current_prior = (a0_A, b0_A, a0_B, b0_B)
+if st.session_state.get("_last_prior") != current_prior:
+    reset_arm("A", a0_A, b0_A)
+    reset_arm("B", a0_B, b0_B)
+    st.session_state["_last_prior"] = current_prior
+else:
+    init_arm("A", a0_A, b0_A)
+    init_arm("B", a0_B, b0_B)
 
 st.sidebar.divider()
+
+# Data entry
 st.sidebar.header("Add data")
+# A arm
+st.sidebar.markdown("**A**")
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    sA = st.number_input("Successes", min_value=0, value=50)
+with col2:
+    fA = st.number_input("Failures", min_value=0, value=50)
 
-sA = st.sidebar.number_input("A successes", min_value=0, value=50)
-fA = st.sidebar.number_input("A failures", min_value=0, value=50)
+# B arm
+st.sidebar.markdown("**B**")
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    sB = st.number_input("Successes", min_value=0, value=60)
+with col2:
+    fB = st.number_input("B failures", min_value=0, value=40)
 
-sB = st.sidebar.number_input("B successes", min_value=0, value=60)
-fB = st.sidebar.number_input("B failures", min_value=0, value=40)
-
-if st.sidebar.button("Update posteriors"):
+if st.sidebar.button("Add batch and update posteriors", use_container_width=True):
     if sA + fA > 0:
         update_arm("A", sA, fA)
     if sB + fB > 0:
         update_arm("B", sB, fB)
 
-if st.sidebar.button("Reset to priors"):
+if st.sidebar.button("Clear data and reset posteriors", use_container_width=True):
     reset_arm("A", a0_A, b0_A)
     reset_arm("B", a0_B, b0_B)
 
@@ -127,10 +176,8 @@ with col1:
         )
     )
 
-    # get default colors
     colors = qualitative.Plotly
 
-    # CI markers
     fig.add_vline(x=lo_A, line_dash="dot", opacity=0.4, line_color=colors[0])
     fig.add_vline(x=hi_A, line_dash="dot", opacity=0.4, line_color=colors[0])
     fig.add_vline(x=lo_B, line_dash="dot", opacity=0.4, line_color=colors[1])
@@ -158,7 +205,6 @@ with col1:
 with col2:
     st.subheader("Decision-relevant quantities")
 
-    # Monte Carlo
     rng = np.random.default_rng(42)
     n_mc = 200_000
 
@@ -166,8 +212,6 @@ with col2:
     samples_B = rng.beta(alpha_B, beta_B, size=n_mc)
 
     p_B_gt_A = np.mean(samples_B > samples_A)
-
-    # Expected loss of choosing B (vs optimal)
     loss_B = np.mean(np.maximum(samples_A - samples_B, 0.0))
 
     st.metric("P(B > A)", f"{p_B_gt_A:.3f}")
@@ -186,13 +230,11 @@ with col2:
 st.subheader("Posterior mean over updates")
 
 steps_A = range(len(A["history"]))
-# means_A = [a / (a + b) for a, b in A["history"]]
 means_A, lo_A, hi_A = zip(
     *[posterior_mean_ci(a, b, level=0.95) for a, b in A["history"]]
 )
 
 steps_B = range(len(B["history"]))
-# means_B = [a / (a + b) for a, b in B["history"]]
 means_B, lo_B, hi_B = zip(
     *[posterior_mean_ci(a, b, level=0.95) for a, b in B["history"]]
 )
@@ -235,14 +277,13 @@ fig_t.update_layout(
     template="plotly_dark",
     xaxis=dict(
         title="Update step",
-        dtick=1,  # tick step = 1 (integers)
+        dtick=1,
         tickmode="linear",
-        tick0=0,  # optional: start at 0
-        tickformat="d",  # display as integer
+        tick0=0,
+        tickformat="d",
     ),
     yaxis=dict(title="Posterior mean", range=[0, 1]),
     margin=dict(l=40, r=40, t=40, b=40),
 )
-
 
 st.plotly_chart(fig_t, use_container_width=True)
