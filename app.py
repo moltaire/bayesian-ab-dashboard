@@ -18,7 +18,7 @@ for k, v in DEFAULTS.items():
         st.session_state[k] = v
 
 
-def reset_sliders():
+def reset_all():
     for k, v in DEFAULTS.items():
         st.session_state[k] = v
     # Also wipe the arms so they reinitialize from the default priors
@@ -90,8 +90,6 @@ with _col1:
 with _col2:
     b0_B = st.number_input("β", min_value=0.1, step=1.0, key="b0_B", help=_beta_help)
 
-st.sidebar.button("Default priors", on_click=reset_sliders)
-
 # ── Detect prior changes and reset arms accordingly ──────────────────────────
 # If the user changed a prior, treat it as a prior change and restart the arm.
 current_prior = (a0_A, b0_A, a0_B, b0_B)
@@ -133,11 +131,9 @@ if st.sidebar.button("Add batch and update posteriors", width="stretch"):
 st.sidebar.divider()
 st.sidebar.header("Reset")
 st.sidebar.caption(
-    "Wipes all accumulated data and returns both arms to the current prior."
+    "Resets priors to defaults, wipes all accumulated data, and clears posteriors."
 )
-if st.sidebar.button("Clear data and reset posteriors", width="stretch"):
-    reset_arm("A", a0_A, b0_A)
-    reset_arm("B", a0_B, b0_B)
+st.sidebar.button("Reset priors, data, and posteriors", on_click=reset_all, width="stretch")
 
 # =====================================================
 # Extract current state
