@@ -12,7 +12,7 @@ st.set_page_config(page_title="Bayesian A/B Updating", layout="wide")
 # =====================================================
 DEFAULTS = {"a0_A": 20.0, "b0_A": 20.0, "a0_B": 1.0, "b0_B": 1.0}
 
-# Initialize slider session state keys on first run
+# Initialize prior input session state keys on first run
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -73,24 +73,27 @@ st.sidebar.caption(
     "Set your belief about each arm's conversion rate *before* seeing any data. A higher α relative to β means a stronger prior towards success."
 )
 
+_alpha_help = "Pseudo-count of prior successes. Prior mean = α / (α + β)."
+_beta_help  = "Pseudo-count of prior failures. Prior mean = α / (α + β)."
+
 st.sidebar.markdown("**A**")
 _col1, _col2 = st.sidebar.columns(2)
 with _col1:
-    a0_A = st.slider("α", min_value=0.1, max_value=100.0, step=1.0, key="a0_A")
+    a0_A = st.number_input("α", min_value=0.1, step=1.0, key="a0_A", help=_alpha_help)
 with _col2:
-    b0_A = st.slider("β", min_value=0.1, max_value=100.0, step=1.0, key="b0_A")
+    b0_A = st.number_input("β", min_value=0.1, step=1.0, key="b0_A", help=_beta_help)
 
 st.sidebar.markdown("**B**")
 _col1, _col2 = st.sidebar.columns(2)
 with _col1:
-    a0_B = st.slider("α", min_value=0.1, max_value=100.0, step=1.0, key="a0_B")
+    a0_B = st.number_input("α", min_value=0.1, step=1.0, key="a0_B", help=_alpha_help)
 with _col2:
-    b0_B = st.slider("β", min_value=0.1, max_value=100.0, step=1.0, key="b0_B")
+    b0_B = st.number_input("β", min_value=0.1, step=1.0, key="b0_B", help=_beta_help)
 
 st.sidebar.button("Default priors", on_click=reset_sliders)
 
 # ── Detect prior changes and reset arms accordingly ──────────────────────────
-# If the user moved a slider, treat it as a prior change and restart the arm.
+# If the user changed a prior, treat it as a prior change and restart the arm.
 current_prior = (a0_A, b0_A, a0_B, b0_B)
 if st.session_state.get("_last_prior") != current_prior:
     reset_arm("A", a0_A, b0_A)
