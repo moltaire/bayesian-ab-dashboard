@@ -69,19 +69,23 @@ def posterior_mean_ci(alpha, beta_, level=0.95):
 # Sidebar: priors and data entry
 # =====================================================
 st.sidebar.header("Priors")
+st.sidebar.caption(
+    "Set your belief about each arm's conversion rate *before* seeing any data. A higher α relative to β means a stronger prior towards success."
+)
 
-a0_A = st.sidebar.slider(
-    "A prior α", min_value=0.1, max_value=100.0, step=1.0, key="a0_A"
-)
-b0_A = st.sidebar.slider(
-    "A prior β", min_value=0.1, max_value=100.0, step=1.0, key="b0_A"
-)
-a0_B = st.sidebar.slider(
-    "B prior α", min_value=0.1, max_value=100.0, step=1.0, key="a0_B"
-)
-b0_B = st.sidebar.slider(
-    "B prior β", min_value=0.1, max_value=100.0, step=1.0, key="b0_B"
-)
+st.sidebar.markdown("**A**")
+_col1, _col2 = st.sidebar.columns(2)
+with _col1:
+    a0_A = st.slider("α", min_value=0.1, max_value=100.0, step=1.0, key="a0_A")
+with _col2:
+    b0_A = st.slider("β", min_value=0.1, max_value=100.0, step=1.0, key="b0_A")
+
+st.sidebar.markdown("**B**")
+_col1, _col2 = st.sidebar.columns(2)
+with _col1:
+    a0_B = st.slider("α", min_value=0.1, max_value=100.0, step=1.0, key="a0_B")
+with _col2:
+    b0_B = st.slider("β", min_value=0.1, max_value=100.0, step=1.0, key="b0_B")
 
 st.sidebar.button("Default priors", on_click=reset_sliders)
 
@@ -100,6 +104,9 @@ st.sidebar.divider()
 
 # Data entry
 st.sidebar.header("Add data")
+st.sidebar.caption(
+    "Enter observed successes and failures for each arm, then add a batch to update the posteriors."
+)
 # A arm
 st.sidebar.markdown("**A**")
 col1, col2 = st.sidebar.columns(2)
@@ -116,13 +123,16 @@ with col1:
 with col2:
     fB = st.number_input("B failures", min_value=0, value=40)
 
-if st.sidebar.button("Add batch and update posteriors", use_container_width=True):
-    if sA + fA > 0:
-        update_arm("A", sA, fA)
-    if sB + fB > 0:
-        update_arm("B", sB, fB)
+if st.sidebar.button("Add batch and update posteriors", width="stretch"):
+    update_arm("A", sA, fA)
+    update_arm("B", sB, fB)
 
-if st.sidebar.button("Clear data and reset posteriors", use_container_width=True):
+st.sidebar.divider()
+st.sidebar.header("Reset")
+st.sidebar.caption(
+    "Wipes all accumulated data and returns both arms to the current prior."
+)
+if st.sidebar.button("Clear data and reset posteriors", width="stretch"):
     reset_arm("A", a0_A, b0_A)
     reset_arm("B", a0_B, b0_B)
 
@@ -141,9 +151,46 @@ mean_B, lo_B, hi_B = posterior_mean_ci(alpha_B, beta_B)
 # =====================================================
 # Layout
 # =====================================================
-st.title("Bayesian A/B Updating (Beta–Binomial)")
+st.title("Bayesian A/B Updating")
+st.caption(
+    "Each arm's conversion rate is modelled as a [Beta distribution](https://en.wikipedia.org/wiki/Beta_distribution), "
+    "a probability distribution over the interval [0, 1] that encodes beliefs about an unknown rate. "
+    "Starting from a prior (α, β), each batch of observed successes and failures updates the posterior via Bayes' rule: "
+    "α grows with successes, β with failures. "
+    "This sequential updating is the core of the [Beta-Binomial model](https://en.wikipedia.org/wiki/Beta-binomial_distribution)."
+)
 
-col1, col2 = st.columns([2, 1])
+prev_mean_A = (
+    posterior_mean_ci(A["history"][-2][0], A["history"][-2][1])[0]
+    if len(A["history"]) >= 2
+    else None
+)
+prev_mean_B = (
+    posterior_mean_ci(B["history"][-2][0], B["history"][-2][1])[0]
+    if len(B["history"]) >= 2
+    else None
+)
+
+delta_mean_A = mean_A - prev_mean_A if prev_mean_A is not None else None
+delta_mean_B = mean_B - prev_mean_B if prev_mean_B is not None else None
+
+_mean_help = "Posterior mean and 95% credible interval for this arm."
+
+
+def ci_aside(lo, hi):
+    st.markdown(
+        f"<div style='opacity:0.45'>"
+        f"<div style='font-size:0.875rem;font-weight:400;margin-bottom:0.4rem'>95% CI</div>"
+        f"<div style='display:flex;flex-direction:column;justify-content:space-between;height:1.6rem'>"
+        f"<div style='font-size:0.8rem'>{lo:.2f}</div>"
+        f"<div style='font-size:0.8rem'>{hi:.2f}</div>"
+        f"</div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+col1, col2 = st.columns([3, 1])
 
 # =====================================================
 # Panel 1: Posterior PDFs + CIs
@@ -185,25 +232,41 @@ with col1:
 
     fig.update_layout(
         template="plotly_dark",
-        xaxis_title="θ",
+        xaxis_title="Success rate",
         yaxis_title="Density",
         margin=dict(l=40, r=40, t=40, b=40),
+        height=400,
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
-    st.markdown(
-        f"""
-**A:** mean = {mean_A:.3f}, 95% CI = [{lo_A:.3f}, {hi_A:.3f}]  
-**B:** mean = {mean_B:.3f}, 95% CI = [{lo_B:.3f}, {hi_B:.3f}]
-"""
-    )
+    _, mc_A, ci_A, gap, mc_B, ci_B, _ = st.columns([0.5, 1, 0.5, 0.6, 1, 0.5, 1.0])
+    with mc_A:
+        st.metric(
+            "Mean A",
+            f"{mean_A:.2f}",
+            delta=f"{delta_mean_A:+.2f}" if delta_mean_A is not None else None,
+            delta_color="normal",
+            help=_mean_help,
+        )
+    with ci_A:
+        ci_aside(lo_A, hi_A)
+    with mc_B:
+        st.metric(
+            "Mean B",
+            f"{mean_B:.2f}",
+            delta=f"{delta_mean_B:+.2f}" if delta_mean_B is not None else None,
+            delta_color="normal",
+            help=_mean_help,
+        )
+    with ci_B:
+        ci_aside(lo_B, hi_B)
 
 # =====================================================
 # Panel 2: Decision metrics
 # =====================================================
 with col2:
-    st.subheader("Decision-relevant quantities")
+    st.subheader("A vs. B")
 
     rng = np.random.default_rng(42)
     n_mc = 200_000
@@ -214,28 +277,61 @@ with col2:
     p_B_gt_A = np.mean(samples_B > samples_A)
     loss_B = np.mean(np.maximum(samples_A - samples_B, 0.0))
 
-    st.metric("P(B > A)", f"{p_B_gt_A:.3f}")
-    st.metric("Expected loss if choosing B", f"{loss_B:.4f}")
+    if len(A["history"]) >= 2:
+        rng_prev = np.random.default_rng(42)
+        prev_samples_A = rng_prev.beta(
+            A["history"][-2][0], A["history"][-2][1], size=n_mc
+        )
+        prev_samples_B = rng_prev.beta(
+            B["history"][-2][0], B["history"][-2][1], size=n_mc
+        )
+        delta_p = p_B_gt_A - np.mean(prev_samples_B > prev_samples_A)
+        delta_loss = loss_B - np.mean(np.maximum(prev_samples_A - prev_samples_B, 0.0))
+    else:
+        delta_p = delta_loss = None
 
-    st.caption(
-        """
-- **P(B > A)** estimated via Monte Carlo  
-- **Expected loss** = E[max(A − B, 0)]
-"""
+    diff_now = mean_B - mean_A
+    diff_prev = (
+        (prev_mean_B - prev_mean_A)
+        if (prev_mean_A is not None and prev_mean_B is not None)
+        else None
     )
+    delta_diff = diff_now - diff_prev if diff_prev is not None else None
+
+    st.metric(
+        "Mean difference (B − A)",
+        f"{diff_now:.2f}",
+        delta=f"{delta_diff:+.2f}" if delta_diff is not None else None,
+        delta_color="normal",
+        help="Difference of posterior means B − A.",
+    )
+    st.metric(
+        "P(B > A)",
+        f"{p_B_gt_A:.3f}",
+        delta=f"{delta_p:+.3f}" if delta_p is not None else None,
+        delta_color="normal",
+        help="Probability that B's true rate exceeds A's, estimated via Monte Carlo sampling.",
+    )
+    st.metric(
+        "Expected loss if choosing B",
+        f"{loss_B:.4f}",
+        delta=f"{delta_loss:+.4f}" if delta_loss is not None else None,
+        delta_color="inverse",
+        help="E[max(A − B, 0)]: average rate you'd lose by picking B if A were actually better.",
+    )
+
 
 # =====================================================
 # Panel 3: Posterior mean timelines
 # =====================================================
-st.subheader("Posterior mean over updates")
 
 steps_A = range(len(A["history"]))
-means_A, lo_A, hi_A = zip(
+means_A, lo_A_hist, hi_A_hist = zip(
     *[posterior_mean_ci(a, b, level=0.95) for a, b in A["history"]]
 )
 
 steps_B = range(len(B["history"]))
-means_B, lo_B, hi_B = zip(
+means_B, lo_B_hist, hi_B_hist = zip(
     *[posterior_mean_ci(a, b, level=0.95) for a, b in B["history"]]
 )
 
@@ -252,8 +348,8 @@ fig_t.add_trace(
         error_y=dict(
             type="data",
             symmetric=False,
-            array=np.array(hi_A) - np.array(means_A),
-            arrayminus=np.array(means_A) - np.array(lo_A),
+            array=np.array(hi_A_hist) - np.array(means_A),
+            arrayminus=np.array(means_A) - np.array(lo_A_hist),
         ),
     )
 )
@@ -267,23 +363,79 @@ fig_t.add_trace(
         error_y=dict(
             type="data",
             symmetric=False,
-            array=np.array(hi_B) - np.array(means_B),
-            arrayminus=np.array(means_B) - np.array(lo_B),
+            array=np.array(hi_B_hist) - np.array(means_B),
+            arrayminus=np.array(means_B) - np.array(lo_B_hist),
         ),
     )
 )
 
+_max_step = len(A["history"]) - 1
+_tick_vals = list(range(_max_step + 1))
+_tick_text = ["Prior"] + [str(i) for i in range(1, _max_step + 1)]
+
 fig_t.update_layout(
     template="plotly_dark",
     xaxis=dict(
-        title="Update step",
-        dtick=1,
-        tickmode="linear",
-        tick0=0,
-        tickformat="d",
+        title="Batch",
+        tickmode="array",
+        tickvals=_tick_vals,
+        ticktext=_tick_text,
     ),
     yaxis=dict(title="Posterior mean", range=[0, 1]),
     margin=dict(l=40, r=40, t=40, b=40),
+    height=400,
 )
 
-st.plotly_chart(fig_t, use_container_width=True)
+col_seq, col_seq_metrics = st.columns([3, 1])
+
+with col_seq:
+    st.subheader("Posterior mean evolution")
+    st.plotly_chart(fig_t, width="stretch")
+
+with col_seq_metrics:
+    st.subheader("Sample metrics")
+
+    n_batches = len(A["history"]) - 1
+
+    cum_nA = int(
+        round((A["alpha"] - A["history"][0][0]) + (A["beta"] - A["history"][0][1]))
+    )
+    cum_nB = int(
+        round((B["alpha"] - B["history"][0][0]) + (B["beta"] - B["history"][0][1]))
+    )
+
+    if n_batches >= 1:
+        last_nA = int(
+            round(
+                (A["history"][-1][0] - A["history"][-2][0])
+                + (A["history"][-1][1] - A["history"][-2][1])
+            )
+        )
+        last_nB = int(
+            round(
+                (B["history"][-1][0] - B["history"][-2][0])
+                + (B["history"][-1][1] - B["history"][-2][1])
+            )
+        )
+    else:
+        last_nA = last_nB = None
+
+    st.metric(
+        "Batches",
+        n_batches,
+        help="Number of data batches added so far. Each batch is one step on the x-axis of the chart.",
+    )
+    st.metric(
+        "Cumulative N (A)",
+        cum_nA,
+        delta=f"+{last_nA}" if last_nA is not None else None,
+        delta_color="off",
+        help="Total observations for arm A across all batches.",
+    )
+    st.metric(
+        "Cumulative N (B)",
+        cum_nB,
+        delta=f"+{last_nB}" if last_nB is not None else None,
+        delta_color="off",
+        help="Total observations for arm B across all batches.",
+    )

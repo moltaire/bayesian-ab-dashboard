@@ -36,7 +36,7 @@ wheels = [
 ]
 
 [[package]]
-name = "bayes-dashboard"
+name = "bayesian-ab-dashboard"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
