@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Take a dark-mode screenshot of the Streamlit app with rounded corners and a drop shadow."""
+"""Take a dark-mode screenshot of the Streamlit app and add a subtle drop shadow."""
 
 import time
 import urllib.request
@@ -10,7 +10,7 @@ from playwright.sync_api import sync_playwright
 
 STREAMLIT_URL = "http://localhost:8501"
 SCREENSHOT_PATH = Path("docs/screenshot.png")
-VIEWPORT = {"width": 1600, "height": 1200}
+VIEWPORT = {"width": 1600, "height": 1400}
 
 
 def wait_for_streamlit(timeout: int = 60) -> None:
@@ -36,19 +36,26 @@ def take_screenshot(path: Path) -> None:
         page.goto(STREAMLIT_URL)
         page.wait_for_selector("h1", timeout=30_000)
         page.wait_for_timeout(3_000)
+
+        # Add two batches so the screenshot shows live posteriors.
+        btn = page.get_by_text("Add batch and update posteriors")
+        for _ in range(2):
+            btn.click()
+            page.wait_for_timeout(2_000)  # let Streamlit re-render between batches
+
+        page.wait_for_timeout(1_000)  # let charts settle
         page.screenshot(path=str(path))
         browser.close()
     print(f"Raw screenshot saved to {path}")
 
 
-def add_rounded_shadow(src: Path, dst: Path) -> None:
+def add_shadow(src: Path, dst: Path) -> None:
     shot = Image.open(src).convert("RGBA")
     sw, sh = shot.size
 
-    CORNER_R = 12
-    SHADOW_BLUR = 28
-    SHADOW_OFFSET_Y = 14
-    MARGIN = SHADOW_BLUR + SHADOW_OFFSET_Y + 10
+    SHADOW_BLUR = 8
+    SHADOW_OFFSET_Y = 6
+    MARGIN = SHADOW_BLUR + SHADOW_OFFSET_Y + 6
 
     canvas_w = sw + MARGIN * 2
     canvas_h = sh + MARGIN * 2
@@ -56,22 +63,16 @@ def add_rounded_shadow(src: Path, dst: Path) -> None:
 
     # ── Drop shadow ───────────────────────────────────────────────────────────
     shadow = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).rounded_rectangle(
+    ImageDraw.Draw(shadow).rectangle(
         [fx, fy + SHADOW_OFFSET_Y, fx + sw, fy + sh + SHADOW_OFFSET_Y],
-        radius=CORNER_R,
-        fill=(0, 0, 0, 190),
+        fill=(0, 0, 0, 160),
     )
     shadow = shadow.filter(ImageFilter.GaussianBlur(SHADOW_BLUR))
-
-    # ── Screenshot clipped to rounded corners ─────────────────────────────────
-    mask = Image.new("L", (sw, sh), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, sw, sh], radius=CORNER_R, fill=255)
-    shot.putalpha(mask)
 
     # ── Composite: transparent canvas → shadow → screenshot ───────────────────
     result = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
     result = Image.alpha_composite(result, shadow)
-    result.paste(shot, (fx, fy), mask=shot)
+    result.paste(shot, (fx, fy))
 
     result.save(dst)
     print(f"Screenshot saved to {dst}")
@@ -82,5 +83,5 @@ if __name__ == "__main__":
     raw = SCREENSHOT_PATH.parent / "_raw.png"
     wait_for_streamlit()
     take_screenshot(raw)
-    add_rounded_shadow(raw, SCREENSHOT_PATH)
+    add_shadow(raw, SCREENSHOT_PATH)
     raw.unlink()
