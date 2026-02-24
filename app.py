@@ -114,17 +114,17 @@ st.sidebar.caption(
 st.sidebar.markdown("**A**")
 col1, col2 = st.sidebar.columns(2)
 with col1:
-    sA = st.number_input("Successes", min_value=0, value=5)
+    sA = st.number_input("Successes", min_value=0, value=5, help="Number of successes (e.g. conversions) observed for arm A in this batch.")
 with col2:
-    fA = st.number_input("Failures", min_value=0, value=5)
+    fA = st.number_input("Failures", min_value=0, value=5, help="Number of failures (e.g. non-conversions) observed for arm A in this batch.")
 
 # B arm
 st.sidebar.markdown("**B**")
 col1, col2 = st.sidebar.columns(2)
 with col1:
-    sB = st.number_input("Successes", min_value=0, value=6)
+    sB = st.number_input("Successes", min_value=0, value=6, help="Number of successes (e.g. conversions) observed for arm B in this batch.")
 with col2:
-    fB = st.number_input("B failures", min_value=0, value=4)
+    fB = st.number_input("B failures", min_value=0, value=4, help="Number of failures (e.g. non-conversions) observed for arm B in this batch.")
 
 if st.sidebar.button("Add batch and update posteriors", width="stretch"):
     update_arm("A", sA, fA)
