@@ -4,7 +4,7 @@ An interactive tool for running sequential Bayesian A/B tests. Set your priors, 
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://bayesian-ab-dashboard.streamlit.app/)
 
-![Dashboard screenshot](docs/screenshot.png)
+<img src="docs/screenshot.png" width="80%" alt="Dashboard screenshot" />
 
 ## What it does
 
@@ -20,7 +20,7 @@ Three decision metrics computed via Monte Carlo sampling, each with an indicator
 
 | Metric | What it means |
 |---|---|
-| **Mean difference (B − A)** | Difference of posterior means |
+| **Mean difference (B − A)** | Current estimate of how much higher the success rate is in B over A |
 | **P(B > A)** | Probability that B's true rate exceeds A's |
 | **Expected loss if choosing B** | E\[max(A − B, 0)\] — average rate you'd forfeit by picking B if A were actually better |
 
