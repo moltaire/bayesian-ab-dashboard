@@ -114,17 +114,17 @@ st.sidebar.caption(
 st.sidebar.markdown("**A**")
 col1, col2 = st.sidebar.columns(2)
 with col1:
-    sA = st.number_input("Successes", min_value=0, value=50)
+    sA = st.number_input("Successes", min_value=0, value=5)
 with col2:
-    fA = st.number_input("Failures", min_value=0, value=50)
+    fA = st.number_input("Failures", min_value=0, value=5)
 
 # B arm
 st.sidebar.markdown("**B**")
 col1, col2 = st.sidebar.columns(2)
 with col1:
-    sB = st.number_input("Successes", min_value=0, value=60)
+    sB = st.number_input("Successes", min_value=0, value=6)
 with col2:
-    fB = st.number_input("B failures", min_value=0, value=40)
+    fB = st.number_input("B failures", min_value=0, value=4)
 
 if st.sidebar.button("Add batch and update posteriors", width="stretch"):
     update_arm("A", sA, fA)
@@ -383,6 +383,7 @@ fig_t.update_layout(
         tickmode="array",
         tickvals=_tick_vals,
         ticktext=_tick_text,
+        range=[-0.5, 0.5] if _max_step == 0 else None,
     ),
     yaxis=dict(title="Posterior mean", range=[0, 1]),
     margin=dict(l=40, r=40, t=40, b=40),

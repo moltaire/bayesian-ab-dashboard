@@ -10,7 +10,7 @@ from playwright.sync_api import sync_playwright
 
 STREAMLIT_URL = "http://localhost:8501"
 SCREENSHOT_PATH = Path("docs/screenshot.png")
-VIEWPORT = {"width": 1600, "height": 1200}
+VIEWPORT = {"width": 1600, "height": 1400}
 
 
 def wait_for_streamlit(timeout: int = 60) -> None:
